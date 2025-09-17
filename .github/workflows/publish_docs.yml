@@ -1,0 +1,110 @@
+name: Build & Publish Docs (DocFX → GitHub Pages)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write         # necesario para publicar en Pages
+  id-token: write      # requerido por deploy-pages
+
+concurrency:
+  group: "docfx-pages"
+  cancel-in-progress: true
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build solution (genera XML docs)
+        run: dotnet build --configuration Release
+
+      - name: Install DocFX
+        run: dotnet tool install -g docfx
+
+      # 1) Crear esqueleto del proyecto DocFX
+      - name: DocFX init
+        run: |
+          docfx init -q -o ./docfx_project
+
+      # 2) Configurar docfx.json para tu repo (proyectos, contenido y salida)
+      - name: Write docfx.json
+        run: |
+          cat > ./docfx_project/docfx.json <<'JSON'
+          {
+            "metadata": [
+              {
+                "src": [
+                  {
+                    "files": [ "Bank/**/*.csproj" ],
+                    "exclude": [
+                      "Bank/**/*.Tests.csproj",
+                      "Bank/**/bin/**",
+                      "Bank/**/obj/**"
+                    ]
+                  }
+                ],
+                "dest": "api",
+                "properties": {
+                  "TargetFramework": "net8.0"
+                }
+              }
+            ],
+            "build": {
+              "content": [
+                { "files": [ "api/**.yml", "api/index.md" ] },
+                { "files": [ "README.md" ] },
+                { "files": [ "docs/**.md" ] }
+              ],
+              "resource": [
+                { "files": [ "docs/images/**" ] }
+              ],
+              "globalMetadata": {
+                "_appTitle": "Bank – API Docs",
+                "_appFooter": "Generado con DocFX"
+              },
+              "dest": "_site"
+            }
+          }
+          JSON
+
+      # 3) Generar metadatos a partir de los .csproj
+      - name: DocFX metadata
+        working-directory: ./docfx_project
+        run: docfx metadata docfx.json
+
+      # 4) Construir el sitio HTML
+      - name: DocFX build
+        working-directory: ./docfx_project
+        run: docfx build docfx.json
+
+      # 5) Subir el sitio como artefacto para Pages
+      - name: Upload artifact to Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docfx_project/_site
+
+  deploy:
+    needs: build-docs
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

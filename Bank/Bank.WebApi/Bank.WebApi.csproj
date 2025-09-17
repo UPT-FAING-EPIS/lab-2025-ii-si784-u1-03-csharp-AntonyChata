@@ -9,5 +9,10 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.8" />
   </ItemGroup>
+<PropertyGroup>
+  <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  <!-- Opcional: evita warnings por miembros sin comentario mientras completas -->
+  <NoWarn>$(NoWarn);1591</NoWarn>
+</PropertyGroup>
 
 </Project>

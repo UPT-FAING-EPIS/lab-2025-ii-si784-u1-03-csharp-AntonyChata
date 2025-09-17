@@ -23,4 +23,20 @@ namespace Bank.WebApi.Tests
             Assert.AreEqual(expected, actual, 0.001, "Account not debited correctly");
         }
     }
+
+    /// <summary>
+/// Controla operaciones bancarias sobre cuentas.
+/// </summary>
+public class BankAccountService
+{
+    /// <summary>
+    /// Deposita un monto en la cuenta indicada.
+    /// </summary>
+    /// <param name="accountId">Id de la cuenta destino.</param>
+    /// <param name="amount">Monto a depositar (mayor a 0).</param>
+    /// <returns>Saldo resultante.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Si amount ≤ 0.</exception>
+    public decimal Deposit(string accountId, decimal amount) { ... }
+}
+
 }

@@ -1,0 +1,70 @@
+name: Semgrep (HTML report to GitHub Pages)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+permissions:
+  contents: read
+  pages: write          
+  id-token: write       
+  security-events: write
+
+concurrency:
+  group: "semgrep-pages"
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    name: Run Semgrep and build site
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Semgrep
+        run: |
+          python -m pip install --upgrade pip
+          pip install semgrep
+
+      - name: Semgrep scan -> HTML + JSON
+        run: |
+          # HTML
+          semgrep scan --config auto --metrics=off \
+            --timeout 0 --error \
+            --output-format html --output semgrep-report.html
+          # JSON (útil como evidencia adicional)
+          semgrep scan --config auto --metrics=off \
+            --timeout 0 --output semgrep.json --json
+
+      # Prepara el sitio que se publicará
+      - name: Build _site
+        run: |
+          mkdir -p _site
+          cp semgrep-report.html _site/index.html
+          cp semgrep.json _site/semgrep.json
+
+      # Sube el sitio como artefacto para Pages
+      - name: Upload artifact for GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: scan
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
